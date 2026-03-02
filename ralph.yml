@@ -1,0 +1,103 @@
+# Ralph Orchestrator Configuration for System Tool Orchestration
+
+cli:
+  backend: claude                    # Usar Claude Code como backend
+  prompt_mode: arg
+  completion_promise: TASK_COMPLETE   # Sinal de conclusão
+
+event_loop:
+  max_iterations: 50                  # Limite de iterações por task
+  max_consecutive_failures: 3         # Falhas consecutivas antes de parar
+  timeout_seconds: 300                # Timeout de 5 minutos
+
+core:
+  workspace_root: /home/user/agent
+  scratchpad_path: .ralph/agent/scratchpad.md
+  memories_path: .ralph/agent/memories.md
+  tasks_path: .ralph/agent/tasks.jsonl
+
+skills:
+  enabled: true
+  dirs:
+    - ./.claude/skills                # Skills do Claude Code
+    - ./skills                        # Skills customizadas deste workspace
+
+hats:
+  system-coordinator:
+    name: "System Coordinator"
+    description: "Orquestra tarefas do sistema e coordena agentes especialistas"
+    triggers: ["task.start", "system.orchestrate"]
+    publishes: ["system.plan_ready", "system.coordinated"]
+    instructions: |
+      Você é o coordenador principal do sistema. Quando uma tarefa é iniciada:
+      1. Analise a requisição e determine quais hats especialistas são necessários
+      2. Publique eventos apropriados para acionar os especialistas
+      3. Aguarde completamento e publique system.coordinated quando terminado
+      4. SEMPRE inicie com contexto fresco - não assuma estado anterior
+
+  widget-manager:
+    name: "Widget Manager"
+    description: "Gerencia o ciclo de vida dos widgets do sistema (brilho, obsidian, pastas)"
+    triggers: ["widget.manage", "widget.status", "widget.configure"]
+    publishes: ["widget.managed", "widget.status_report"]
+    instructions: |
+      Você gerencia os widgets do sistema:
+      - brightness-widget.py (~/.local/bin/brightness-widget.py)
+      - obsidian-widget.py (~/.local/bin/obsidian-widget.py)
+      - foldermenu@user.local (GNOME extension)
+
+      Para operar widgets, use subprocess para executar comandos shell.
+      Estado é persistido em: ~/.config/{widget-name}/
+
+  brightness-specialist:
+    name: "Brightness Specialist"
+    description: "Especialista em controle de brilho e perfis de exibição"
+    triggers: ["brightness.adjust", "brightness.profile", "brightness.query"]
+    publishes: ["brightness.adjusted", "brightness.status"]
+    instructions: |
+      Você controla o brightness-widget usando subprocess:
+      - Status: `ps aux | grep brightness-widget.py`
+      - Config: `~/.config/brightness-widget/profiles.json`
+      - Aplicar: Widget já roda, apenas modifique configs se necessário
+
+  obsidian-specialist:
+    name: "Obsidian Specialist"
+    description: "Especialista em gerenciamento de vaults Obsidian"
+    triggers: ["obsidian.open", "obsidian.vaults", "obsidian.manage"]
+    publishes: ["obsidian.opened", "obsidian.vaults_list"]
+    instructions: |
+      Você gerencia o Obsidian widget:
+      - Scaneia vaults em ~/Documentos, ~/personal, ~/Micologia
+      - Usa protocolo obsidian:// para abrir vaults específicos
+      - Config: ~/.config/obsidian/obsidian.json
+
+events:
+  task.start:
+    description: "Uma nova tarefa de orquestração do sistema foi iniciada"
+    purpose: "Trigger para o system-coordinator iniciar o workflow"
+    expectations: "Descrição da tarefa com critérios de aceitação"
+
+  system.orchestrate:
+    description: "Solicitação de orquestração de múltiplas operações do sistema"
+    purpose: "Coordenar operações complexas envolvendo múltiplos widgets"
+    expectations: "Lista de operações com dependências"
+
+  widget.manage:
+    description: "Solicitação de gerenciamento de widgets"
+    purpose: "Iniciar, parar, ou reiniciar widgets do sistema"
+    expectations: "Ação (start/stop/restart) e widget alvo"
+
+  brightness.adjust:
+    description: "Ajustar brilho do monitor"
+    purpose: "Modificar níveis de brilho e gamma"
+    expectations: "Valor de brilho (0.1-1.5) e gamma (R:G:B)"
+
+  obsidian.open:
+    description: "Abrir um vault específico do Obsidian"
+    purpose: "Abrir vault usando protocolo obsidian://"
+    expectations: "Caminho do vault ou nome do vault"
+
+  TASK_COMPLETE:
+    description: "Tarefa completada com sucesso"
+    purpose: "Sinal para encerrar o loop do Ralph"
+    expectations: "Resumo do que foi realizado e evidências"
