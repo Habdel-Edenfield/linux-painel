@@ -48,6 +48,7 @@ hats:
       - brightness-widget.py (~/.local/bin/brightness-widget.py)
       - obsidian-widget.py (~/.local/bin/obsidian-widget.py)
       - foldermenu@user.local (GNOME extension)
+      - system-tools@user.local (Nova extensão GNOME Shell - WIP)
 
       Para operar widgets, use subprocess para executar comandos shell.
       Estado é persistido em: ~/.config/{widget-name}/
@@ -63,6 +64,8 @@ hats:
       - Config: `~/.config/brightness-widget/profiles.json`
       - Aplicar: Widget já roda, apenas modifique configs se necessário
 
+      NOTA: Para nova extensão GNOME Shell, consulte gnome-dev-specialist.
+
   obsidian-specialist:
     name: "Obsidian Specialist"
     description: "Especialista em gerenciamento de vaults Obsidian"
@@ -73,6 +76,43 @@ hats:
       - Scaneia vaults em ~/Documentos, ~/personal, ~/Micologia
       - Usa protocolo obsidian:// para abrir vaults específicos
       - Config: ~/.config/obsidian/obsidian.json
+
+      NOTA: Para nova extensão GNOME Shell, consulte gnome-dev-specialist.
+
+  design-coordinator:
+    name: "Design Coordinator"
+    description: "Garante que widgets seguem padrões de design do Vitals"
+    triggers: ["widget.design", "widget.validate"]
+    publishes: ["design.approved", "design.needs_work"]
+    instructions: |
+      Você valida design de widgets contra padrões Vitals:
+      - Arquitetura: GNOME Shell Extension (PanelMenu.Button), não Python GTK/AppIndicator
+      - Ícones: SVG symbolic 16px com temas (original/, gnome/)
+      - CSS: Classes seguindo padrão vitals-* (vitals-panel-icon-*, vitals-button-action)
+      - Menus: PopupSubMenuMenuItem + bar de ações com botões redondos
+      - Configuração: GSettings schema extensiva com tipos corretos (b, i, s, as)
+      - Polling: GLib.timeout_add_seconds() async, não blocking loops
+
+      Consulte: /home/user/agent/specs/VITALS-DESIGN-REFERENCE.md
+      Use skill: vitals-reference
+
+  gnome-dev-specialist:
+    name: "GNOME Development Specialist"
+    description: "Especialista em desenvolvimento de GNOME Shell extensions"
+    triggers: ["gnome.create", "gnome.modify", "gnome.debug"]
+    publishes: ["gnome.created", "gnome.modified", "gnome.debugged"]
+    instructions: |
+      Você desenvolve GNOME Shell extensions seguindo padrões Vitals:
+      - PanelMenu.Button para panel integration
+      - PopupMenu.PopupSubMenuMenuItem para submenus categoriazados
+      - GSettings para configuração persistente
+      - GLib.spawn_async() para comandos shell
+      - Gio.icon_new_for_string() para ícones dinâmicos
+      - St.BoxLayout para layouts horizontais no panel
+      - GLib.timeout_add_seconds() para polling assíncrono
+
+      Consulte: /home/user/agent/skills/vitals-reference.md
+      Templates e checklists disponíveis na skill.
 
 events:
   system.orchestrate:
@@ -89,6 +129,31 @@ events:
     description: "Solicitação de gerenciamento de widgets"
     purpose: "Iniciar, parar, ou reiniciar widgets do sistema"
     expectations: "Ação (start/stop/restart) e widget alvo"
+
+  widget.design:
+    description: "Solicitação de design de novo widget"
+    purpose: "Criar widget seguindo padrões Vitals"
+    expectations: "Tipo de widget (brightness, obsidian, etc.) e requisitos funcionais"
+
+  widget.validate:
+    description: "Validar design de widget contra padrões Vitals"
+    purpose: "Garantir consistência de design com referência Vitals"
+    expectations: "Caminho para extensão ou arquivos a validar"
+
+  gnome.create:
+    description: "Criar GNOME Shell extension"
+    purpose: "Desenvolver nova extensão seguindo padrões Vitals"
+    expectations: "Nome da extensão, módulos necessários, funcionalidades"
+
+  gnome.modify:
+    description: "Modificar GNOME Shell extension existente"
+    purpose: "Atualizar código de extensão seguindo padrões"
+    expectations: "Caminho da extensão e alterações necessárias"
+
+  gnome.debug:
+    description: "Debug GNOME Shell extension"
+    purpose: "Investigar e corrigir problemas na extensão"
+    expectations: "Descrição do problema e logs disponíveis"
 
   brightness.adjust:
     description: "Ajustar brilho do monitor"
