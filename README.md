@@ -1,5 +1,11 @@
 # Ralph Agent Workspace
 
+## 🚀 Como Começar
+
+**Leia [START_HERE.md](./START_HERE.md) para instruções completas de uso.**
+
+> ⚠️ **IMPORTANTE**: Ralph requer execução de **fora** de uma sessão do Claude Code.
+
 ## Purpose
 
 Workspace especializado para orquestração de ferramentas do sistema usando Ralph Orchestrator.
