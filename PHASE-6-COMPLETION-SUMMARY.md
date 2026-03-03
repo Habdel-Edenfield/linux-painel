@@ -19,6 +19,7 @@ Auditoria completa da interface do Brightness Module e correção de funcionalid
 | **`brightness-profiles`** não usado | ❌ NÃO USADO | ✅ CORRIGIDO |
 | **`default-brightness-profile`** não usado | ❌ NÃO USADO | ✅ CORRIGIDO |
 | **`brightness-poll-interval`** não usado | ❌ NÃO USADO | ✅ CORRIGIDO |
+| **Faltava import GLib** | ❌ FALTAVA | ✅ CORRIGIDO |
 
 ### Schema de Settings Existente
 
@@ -34,15 +35,16 @@ O schema `org.gnome.shell.extensions.system-tools` já continha:
 ### FASE 6: Auditoria e Correções ✅
 
 **Implementado:**
-1. ✅ **Slider de brilho** (`Slider.Slider`) para ajuste fino (0-100%)
-2. ✅ **Leitura de profiles do schema** `brightness-profiles`
-3. ✅ **Polling automático** do brilho (configurável via `brightness-poll-interval`)
-4. ✅ **Atualização em tempo real** - se brilho mudar externamente, o label atualiza
-5. ✅ **Evitar loop no slider** - só atualiza se diferença > 1%
-6. ✅ **Ícones dinâmicos** para profiles (☀️, 🌗, 🌑)
-7. ✅ **Label do slider** com texto "Brilho"
-8. ✅ **Header informativo** no menu
-9. ✅ **Limpeza do polling** no `destroy()`
+1. ✅ **Import GLib** - necessário para `GLib.timeout_add()` (CORREÇÃO CRÍTICA)
+2. ✅ **Slider de brilho** (`Slider.Slider`) para ajuste fino (0-100%)
+3. ✅ **Leitura de profiles do schema** `brightness-profiles`
+4. ✅ **Polling automático** do brilho (configurável via `brightness-poll-interval`)
+5. ✅ **Atualização em tempo real** - se brilho mudar externamente, o label atualiza
+6. ✅ **Evitar loop no slider** - só atualiza se diferença > 1%
+7. ✅ **Ícones dinâmicos** para profiles (☀️, 🌗, 🌑)
+8. ✅ **Label do slider** com texto "Brilho"
+9. ✅ **Header informativo** no menu
+10. ✅ **Limpeza do polling** no `destroy()`
 
 ### Nova Interface
 
@@ -62,6 +64,8 @@ Output: DP-2
 ### Código Principal Implementado
 
 ```javascript
+// Import necessário para polling
+import GLib from 'gi://GLib';
 import * as Slider from 'resource:///org/gnome/shell/ui/slider.js';
 
 // Slider para ajuste fino
@@ -122,8 +126,21 @@ _buildProfilesSection() {
 - Se você mudar o brilho via xrandr, o label atualiza
 - Se você mudar o brilho via outro app, o slider atualiza
 
+## Arquivo extension.js - Estado Atual
+
+```javascript
+import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';  // ✅ ADICIONADO
+import St from 'gi://St';
+import GObject from 'gi://GObject';
+import * as Slider from 'resource:///org/gnome/shell/ui/slider.js';
+import { BrightnessModule } from './BrightnessModule.js';
+```
+
 ## Test Checklist FASE 6
 
+- [x] GLib importado
 - [x] Slider aparece no menu
 - [x] Slider funciona (arrasta e muda brilho)
 - [x] Profiles são lidos do schema
@@ -154,7 +171,7 @@ _buildProfilesSection() {
 ```
 ~/.local/share/gnome-shell/extensions/system-tools@user.local/
 ├── BrightnessModule.js        ✅
-├── extension.js               ✅ FASE 6 (atualizado)
+├── extension.js               ✅ FASE 6 (atualizado com GLib import)
 ├── extension.js.fase4-test    Backup
 ├── metadata.json
 ├── stylesheet.css
@@ -178,7 +195,7 @@ gsettings set org.gnome.shell.extensions.system-tools brightness-poll-interval 3
 ## Commit & Push Após Handoff
 
 **AO FINALIZAR HANDOFF:**
-1. Executar: `~/agent/scripts/handoff-commit.sh "fix: phase-6 - Auditoria e correções (slider, profiles dinâmicos, polling)"`
+1. Executar: `~/agent/scripts/handoff-commit.sh "fix: phase-6 - Import GLib necessário para polling"`
 2. Verificar que o push foi bem-sucedido
 3. Confirmar no GitHub que o commit apareceu
 
@@ -204,8 +221,10 @@ Antes da auditoria (FASE 5):
 - ❌ Sem polling
 - ❌ Sem atualização em tempo real
 - ❌ Settings não usados
+- ❌ Faltava import GLib
 
 Depois da correção (FASE 6):
+- ✅ GLib importado (correção crítica)
 - ✅ Slider para ajuste fino
 - ✅ Profiles lidos do schema
 - ✅ Polling automático
