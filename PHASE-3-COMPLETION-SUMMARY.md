@@ -205,6 +205,20 @@ enable() {
 
 5. **Logs do SystemTools não aparecem no journalctl:** O `console.log` não está sendo capturado pelo journalctl por padrão
 
+6. **⚠️ CRÍTICO: `killall -SIGUSR1 gnome-shell` causa travamentos:**
+   - No GNOME 46, este comando mata TODOS os processos gnome-shell simultaneamente
+   - Causa problemas de sincronização que forçam reinício do computador
+   - **Solução:** Usar `gnome-extensions disable` + `gnome-extensions enable` para recarregar extensões específicas
+
+   ```bash
+   # ❌ NÃO USAR (causa travamentos):
+   killall -SIGUSR1 gnome-shell
+
+   # ✅ USAR (seguro):
+   gnome-extensions disable system-tools@user.local
+   gnome-extensions enable system-tools@user.local
+   ```
+
 ## Prompt para Próximo Agente
 
 ```
