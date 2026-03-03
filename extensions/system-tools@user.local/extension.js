@@ -1,592 +1,331 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import GObject from 'gi://GObject';
 import St from 'gi://St';
+import GObject from 'gi://GObject';
 
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as Slider from 'resource:///org/gnome/shell/ui/slider.js';
 
-import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
+// Importar BrightnessModule
+import { BrightnessModule } from './BrightnessModule.js';
 
-let systemToolsMenu;
 
-/**
- * BrightnessModule - Handles brightness control via xrandr
- */
-var BrightnessModule = GObject.registerClass({
-    GTypeName: 'BrightnessModule',
-    Signals: {
-        'brightness-changed': { param_types: [GObject.TYPE_DOUBLE] },
-    },
-}, class BrightnessModule extends GObject.Object {
-    _init(settings, extensionObject) {
-        super._init();
+const SystemToolsButton = GObject.registerClass(
+    class SystemToolsButton extends PanelMenu.Button {
+        _init(settings) {
+            super._init(0.5, 'System Tools');
 
-        this._settings = settings;
-        this._extensionObject = extensionObject;
-        this._currentBrightness = 100;
-        this._monitorOutput = 'DP-2'; // Default monitor, will be detected
-        this._pollTimeout = null;
-        this._pollInterval = 5;
+            // Armazenar settings
+            this._settings = settings;
 
-        // Detect primary monitor
-        this._detectMonitor();
+            // Instanciar BrightnessModule
+            try {
+                this._brightnessModule = new BrightnessModule();
+                console.log('[SystemTools] BrightnessModule initialized');
+            } catch (e) {
+                console.error('[SystemTools] Failed to initialize BrightnessModule:', e.message);
+                this._brightnessModule = null;
+            }
 
-        // Get current brightness
-        this._currentBrightness = this._getCurrentBrightness();
-    }
+            // Timer para polling do brilho
+            this._pollTimerId = null;
 
-    /**
-     * Detect primary monitor output name
-     */
-    _detectMonitor() {
-        try {
-            let [success, stdout, stderr] = GLib.spawn_command_line_sync(
-                'xrandr --query | grep " connected primary" | cut -d" " -f1'
-            );
-            if (success && stdout) {
-                let output = stdout.toString().trim();
-                if (output) {
-                    this._monitorOutput = output;
-                    log('[System Tools] Detected monitor: ' + this._monitorOutput);
+            // Container para o conteúdo
+            this._box = new St.BoxLayout({
+                style_class: 'panel-status-menu-box',
+            });
+
+            // Label principal (mostra brilho atual)
+            this._label = new St.Label({
+                text: '🔆',
+                y_align: Clutter.ActorAlign.CENTER
+            });
+
+            this._box.add_child(this._label);
+            this.add_child(this._box);
+
+            // Atualizar label com brilho atual
+            this._updateBrightnessLabel();
+
+            // Construir menu
+            this._buildMenu();
+
+            // Iniciar polling do brilho (para atualização em tempo real)
+            this._startBrightnessPolling();
+
+            console.log('[SystemTools] Extension loaded - FASE 6 (Slider + Profiles + Polling) complete');
+        }
+
+        // Método para ler settings com fallback
+        _getSetting(key, type, defaultValue) {
+            if (!this._settings) {
+                console.log(`[SystemTools] Settings not available, using fallback for ${key}: ${defaultValue}`);
+                return defaultValue;
+            }
+
+            try {
+                switch (type) {
+                    case 'boolean':
+                        return this._settings.get_boolean(key);
+                    case 'string':
+                        return this._settings.get_string(key);
+                    case 'int':
+                        return this._settings.get_int(key);
+                    case 'double':
+                        return this._settings.get_double(key);
+                    case 'variant':
+                        return this._settings.get_value(key).deep_unpack();
+                    default:
+                        console.log(`[SystemTools] Unknown type ${type} for key ${key}, using fallback`);
+                        return defaultValue;
+                }
+            } catch (e) {
+                console.error(`[SystemTools] Error reading setting ${key}: ${e.message}`);
+                return defaultValue;
+            }
+        }
+
+        // Atualizar label principal com brilho atual
+        _updateBrightnessLabel() {
+            if (!this._brightnessModule) {
+                this._label.text = '🔆';
+                return;
+            }
+
+            const showBrightnessInPanel = this._getSetting('show-brightness-in-panel', 'boolean', true);
+
+            if (!showBrightnessInPanel) {
+                this._label.text = '🔆';
+                return;
+            }
+
+            const percent = this._brightnessModule.getBrightnessPercent();
+            if (percent !== null) {
+                this._label.text = `🔆 ${percent}%`;
+            } else {
+                this._label.text = '🔆 ???';
+            }
+        }
+
+        // Iniciar polling do brilho (para atualização em tempo real)
+        _startBrightnessPolling() {
+            const pollInterval = this._getSetting('brightness-poll-interval', 'int', 5) * 1000;
+
+            if (this._pollTimerId) {
+                GLib.source_remove(this._pollTimerId);
+            }
+
+            this._pollTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pollInterval, () => {
+                this._updateBrightnessLabel();
+                this._updateSliderValue();
+                return GLib.SOURCE_CONTINUE;
+            });
+
+            console.log(`[SystemTools] Polling started (interval: ${pollInterval}ms)`);
+        }
+
+        // Parar polling
+        _stopBrightnessPolling() {
+            if (this._pollTimerId) {
+                GLib.source_remove(this._pollTimerId);
+                this._pollTimerId = null;
+                console.log('[SystemTools] Polling stopped');
+            }
+        }
+
+        // Construir slider de brilho
+        _buildBrightnessSlider() {
+            // Container para o slider
+            const sliderBox = new St.BoxLayout({
+                style_class: 'brightness-slider-box',
+                x_align: Clutter.ActorAlign.FILL,
+                margin_top: 8,
+                margin_bottom: 8,
+            });
+
+            // Label "Brilho"
+            const sliderLabel = new St.Label({
+                text: 'Brilho',
+                y_align: Clutter.ActorAlign.CENTER,
+                style: 'padding-right: 12px;',
+            });
+            sliderBox.add_child(sliderLabel);
+
+            // Criar slider (0 a 1)
+            this._brightnessSlider = new Slider.Slider(0);
+            this._brightnessSlider.x_expand = true;
+
+            // Definir valor atual do slider
+            const currentPercent = this._brightnessModule ? this._brightnessModule.getBrightnessPercent() : 80;
+            if (currentPercent !== null) {
+                this._brightnessSlider.value = currentPercent / 100;
+            }
+
+            // Quando slider mudar, atualizar brilho
+            this._brightnessSlider.connect('notify::value', () => {
+                if (this._brightnessModule) {
+                    const percent = Math.round(this._brightnessSlider.value * 100);
+                    this._brightnessModule.setBrightnessPercent(percent);
+                    this._updateBrightnessLabel();
+                    console.log(`[SystemTools] Brightness set to ${percent}% via slider`);
+                }
+            });
+
+            sliderBox.add_child(this._brightnessSlider);
+
+            // Criar item de menu para o slider
+            const sliderItem = new PopupMenu.PopupBaseMenuItem({
+                activate: false,
+                can_focus: false,
+            });
+            sliderItem.add_child(sliderBox);
+
+            return sliderItem;
+        }
+
+        // Atualizar valor do slider
+        _updateSliderValue() {
+            if (!this._brightnessSlider || !this._brightnessModule) {
+                return;
+            }
+
+            const percent = this._brightnessModule.getBrightnessPercent();
+            if (percent !== null) {
+                // Evitar loop: só atualizar se a diferença for significativa
+                const currentValue = this._brightnessSlider.value;
+                const newValue = percent / 100;
+
+                if (Math.abs(currentValue - newValue) > 0.01) {
+                    this._brightnessSlider.value = newValue;
                 }
             }
-        } catch (e) {
-            log('[System Tools] Error detecting monitor: ' + e.message);
         }
-    }
 
-    /**
-     * Get current brightness from xrandr
-     */
-    _getCurrentBrightness() {
-        try {
-            let [success, stdout, stderr] = GLib.spawn_command_line_sync(
-                `xrandr --verbose | grep -i brightness | head -n 1 | cut -d':' -f2 | awk '{print $1}'`
+        // Construir seção de profiles
+        _buildProfilesSection() {
+            // Header da seção de profiles
+            const profilesHeader = new PopupMenu.PopupMenuItem('⚙️ Perfis');
+            profilesHeader.setSensitive(false);
+            this.menu.addMenuItem(profilesHeader);
+
+            // Obter profiles do schema
+            const profiles = this._getSetting('brightness-profiles', 'variant', {
+                'normal': '100',
+                'comfort': '80',
+                'dark': '70'
+            });
+
+            // Definir ícones para cada profile
+            const profileIcons = {
+                'normal': '☀️',
+                'comfort': '🌗',
+                'dark': '🌑'
+            };
+
+            // Criar botões para cada profile
+            for (const [name, value] of Object.entries(profiles)) {
+                const icon = profileIcons[name] || '💡';
+                const percent = parseInt(value);
+                const label = `${icon} ${name.charAt(0).toUpperCase() + name.slice(1)} (${percent}%)`;
+
+                const profileItem = new PopupMenu.PopupMenuItem(label);
+                profileItem.connect('activate', () => {
+                    if (this._brightnessModule) {
+                        this._brightnessModule.setBrightnessPercent(percent);
+                        this._updateBrightnessLabel();
+                        this._updateSliderValue();
+                        console.log(`[SystemTools] Brightness set to profile "${name}" (${percent}%)`);
+                    }
+                });
+                this.menu.addMenuItem(profileItem);
+            }
+        }
+
+        _buildMenu() {
+            const showBrightness = this._getSetting('show-brightness', 'boolean', true);
+
+            if (!showBrightness) {
+                console.log('[SystemTools] Brightness section hidden by setting');
+                return;
+            }
+
+            // Header da seção de brilho
+            const brightnessHeader = new PopupMenu.PopupMenuItem('🔆 Controle de Brilho');
+            brightnessHeader.setSensitive(false);
+            this.menu.addMenuItem(brightnessHeader);
+
+            // Mostrar brilho atual
+            const currentPercent = this._brightnessModule ? this._brightnessModule.getBrightnessPercent() : null;
+            const currentBrightnessItem = new PopupMenu.PopupMenuItem(
+                `Atual: ${currentPercent !== null ? currentPercent + '%' : 'Desconhecido'}`
             );
+            currentBrightnessItem.setSensitive(false);
+            this.menu.addMenuItem(currentBrightnessItem);
 
-            if (success && stdout) {
-                let brightnessStr = stdout.toString().trim();
-                let brightness = parseFloat(brightnessStr);
-                if (!isNaN(brightness)) {
-                    // Convert to percentage (0-100)
-                    this._currentBrightness = Math.round(brightness * 100);
-                    log('[System Tools] Current brightness: ' + this._currentBrightness + '%');
-                    return this._currentBrightness;
-                }
-            }
-        } catch (e) {
-            log('[System Tools] Error getting brightness: ' + e.message);
+            // Adicionar slider (ajuste fino)
+            const sliderItem = this._buildBrightnessSlider();
+            this.menu.addMenuItem(sliderItem);
+
+            // Separador
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+            // Seção de profiles
+            this._buildProfilesSection();
+
+            // Separador
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+            // Info (debug)
+            const outputName = this._brightnessModule ? this._brightnessModule.getOutputName() : 'None';
+            const outputItem = new PopupMenu.PopupMenuItem(`Output: ${outputName}`);
+            outputItem.setSensitive(false);
+            this.menu.addMenuItem(outputItem);
         }
 
-        return this._currentBrightness;
-    }
-
-    /**
-     * Set brightness using xrandr
-     */
-    setBrightness(value, gamma = null) {
-        try {
-            // Clamp value between 10 and 100
-            value = Math.max(10, Math.min(100, value));
-
-            // Convert to decimal (0.1 - 1.0)
-            let brightnessValue = value / 100;
-
-            let args = ['xrandr', '--output', this._monitorOutput, '--brightness', brightnessValue.toString()];
-
-            // Add gamma if specified
-            if (gamma) {
-                args.push('--gamma', gamma);
-            }
-
-            GLib.spawn_async(null, args, null, GLib.SpawnFlags.SEARCH_PATH, null);
-
-            this._currentBrightness = value;
-            log('[System Tools] Set brightness to ' + value + '%');
-
-            // Emit signal
-            this.emit('brightness-changed', value);
-
-            return true;
-        } catch (e) {
-            log('[System Tools] Error setting brightness: ' + e.message);
-            return false;
+        destroy() {
+            this._stopBrightnessPolling();
+            super.destroy();
         }
-    }
+    });
 
-    /**
-     * Get brightness profiles from settings
-     */
-    getProfiles() {
-        try {
-            return this._settings.get_value('brightness-profiles').deep_unpack();
-        } catch (e) {
-            log('[System Tools] Error getting profiles: ' + e.message);
-            return { 'normal': 100, 'comfort': 80, 'dark': 70 };
-        }
-    }
 
-    /**
-     * Apply a brightness profile
-     */
-    applyProfile(profileName) {
-        let profiles = this.getProfiles();
-
-        if (profileName in profiles) {
-            let profile = profiles[profileName];
-            let brightness = profile.brightness || 100;
-            let gamma = profile.gamma || null;
-
-            if (typeof profile === 'number') {
-                // Legacy format: just brightness value
-                brightness = profile;
-            } else if (typeof profile === 'string') {
-                // String format: parse brightness value
-                brightness = parseInt(profile);
-            }
-
-            log('[System Tools] Applying profile: ' + profileName + ' (brightness: ' + brightness + '%)');
-            return this.setBrightness(brightness, gamma);
-        }
-
-        return false;
-    }
-
-    /**
-     * Start polling for brightness changes
-     */
-    startPolling() {
-        if (this._pollTimeout) {
-            return; // Already polling
-        }
-
-        this._pollInterval = this._settings.get_int('update-time');
-
-        log('[System Tools] Starting brightness polling (interval: ' + this._pollInterval + 's)');
-
-        this._pollTimeout = GLib.timeout_add_seconds(
-            GLib.PRIORITY_DEFAULT,
-            this._pollInterval,
-            this._pollBrightness.bind(this)
-        );
-    }
-
-    /**
-     * Stop polling for brightness changes
-     */
-    stopPolling() {
-        if (this._pollTimeout) {
-            GLib.source_remove(this._pollTimeout);
-            this._pollTimeout = null;
-            log('[System Tools] Stopped brightness polling');
-        }
-    }
-
-    /**
-     * Poll brightness (called by timeout)
-     */
-    _pollBrightness() {
-        let oldBrightness = this._currentBrightness;
-        let newBrightness = this._getCurrentBrightness();
-
-        if (oldBrightness !== newBrightness) {
-            log('[System Tools] Brightness changed: ' + oldBrightness + '% -> ' + newBrightness + '%');
-            this.emit('brightness-changed', newBrightness);
-        }
-
-        return GLib.SOURCE_CONTINUE;
-    }
-
-    /**
-     * Get current brightness value
-     */
-    getCurrentBrightness() {
-        return this._currentBrightness;
-    }
-
-    /**
-     * Cleanup resources
-     */
-    destroy() {
-        this.stopPolling();
-    }
-});
-
-/**
- * SystemToolsMenuButton - Main widget for System Tools extension
- * Vitals-inspired design with unified brightness and obsidian controls
- */
-var SystemToolsMenuButton = GObject.registerClass({
-    GTypeName: 'SystemToolsMenuButton',
-}, class SystemToolsMenuButton extends PanelMenu.Button {
-    _init(extensionObject) {
-        super._init(Clutter.ActorAlign.FILL);
-
-        this._extensionObject = extensionObject;
-        this._settings = extensionObject.getSettings();
-
-        // Icon paths for different themes
-        this._sensorsIconPathPrefix = ['/icons/original/', '/icons/gnome/'];
-
-        // Module containers
-        this._brightnessButton = null;
-        this._obsidianButton = null;
-        this._menuLayout = null;
-
-        // Hot sensor labels
-        this._brightnessHotLabel = null;
-
-        // Create horizontal layout for panel widgets
-        this._menuLayout = new St.BoxLayout({
-            vertical: false,
-            clip_to_allocation: true,
-            x_align: Clutter.ActorAlign.START,
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true,
-            x_expand: true
-        });
-
-        // Initialize modules
-        this._brightnessModule = new BrightnessModule(this._settings, this._extensionObject);
-
-        this._buildPanel();
-        this.add_child(this._menuLayout);
-
-        // Settings change signals
-        this._settingChangedSignals = [];
-        this._addSettingChangedSignal('show-brightness', this._updateVisibility.bind(this));
-        this._addSettingChangedSignal('show-obsidian', this._updateVisibility.bind(this));
-        this._addSettingChangedSignal('icon-style', this._iconStyleChanged.bind(this));
-        this._addSettingChangedSignal('update-time', this._updatePollInterval.bind(this));
-
-        // Connect brightness change signal
-        this._brightnessModule.connect('brightness-changed', this._updateBrightnessHotSensor.bind(this));
-
-        // Build menu
-        this._buildMenu();
-
-        // Start brightness polling
-        this._brightnessModule.startPolling();
-
-        // Initial updates
-        this._updateVisibility();
-        this._updateBrightnessHotSensor();
-    }
-
-    /**
-     * Build panel widgets
-     */
-    _buildPanel() {
-        // Brightness widget with hot sensor
-        this._brightnessButton = new St.Button({
-            style_class: 'vitals-panel-icon',
-            reactive: true,
-            can_focus: false,
-            track_hover: false,
-        });
-
-        let brightnessIcon = this._createIcon('brightness-symbolic.svg');
-        this._brightnessButton.set_child(brightnessIcon);
-        this._brightnessButton.connect('clicked', () => {
-            this.menu.toggle();
-        });
-
-        this._menuLayout.add_child(this._brightnessButton);
-
-        // Hot sensor label for brightness
-        this._brightnessHotLabel = new St.Label({
-            style_class: 'vitals-panel-label hot-sensor-value',
-            text: '\u2026', // ... loading indicator
-            y_expand: true,
-            y_align: Clutter.ActorAlign.CENTER
-        });
-
-        this._menuLayout.add_child(this._brightnessHotLabel);
-
-        // Obsidian widget placeholder
-        this._obsidianButton = new St.Button({
-            style_class: 'vitals-panel-icon',
-            reactive: true,
-            can_focus: false,
-            track_hover: false,
-        });
-
-        let obsidianIcon = this._createIcon('obsidian-symbolic.svg');
-        this._obsidianButton.set_child(obsidianIcon);
-        this._obsidianButton.connect('clicked', () => {
-            this.menu.toggle();
-        });
-
-        this._menuLayout.add_child(this._obsidianButton);
-
-        // Add spacing between widgets
-        let spacer = new St.Bin({
-            style_class: 'popup-menu-item',
-            x_align: St.Align.START,
-            y_align: St.Align.CENTER,
-            reactive: false,
-            can_focus: false,
-            track_hover: false
-        });
-
-        this._menuLayout.add_child(spacer);
-    }
-
-    /**
-     * Build menu structure
-     */
-    _buildMenu() {
-        // Brightness section
-        if (this._settings.get_boolean('show-brightness')) {
-            this._buildBrightnessSection();
-        }
-
-        // Obsidian section
-        if (this._settings.get_boolean('show-obsidian')) {
-            this._buildObsidianSection();
-        }
-
-        // Add separator
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        // Preferences button
-        let prefsButton = new PopupMenu.PopupMenuItem(_('Preferences'));
-        prefsButton.connect('activate', () => {
-            this._extensionObject.openPreferences();
-        });
-        this.menu.addMenuItem(prefsButton);
-
-        // About button
-        let aboutButton = new PopupMenu.PopupMenuItem(_('About System Tools'));
-        aboutButton.connect('activate', () => {
-            this._showAbout();
-        });
-        this.menu.addMenuItem(aboutButton);
-
-        // Connect menu open state for instant refresh
-        this.menu.connect('open-state-changed', (menu, isOpen) => {
-            if (isOpen) {
-                log('[System Tools] Menu opened - refreshing data');
-                this._brightnessModule._getCurrentBrightness();
-                this._updateBrightnessHotSensor();
-            }
-        });
-    }
-
-    /**
-     * Build brightness control section
-     */
-    _buildBrightnessSection() {
-        let brightnessSection = new PopupMenu.PopupSubMenuMenuItem(_('Brightness'), true);
-
-        // Add current brightness indicator
-        let currentBrightnessItem = new PopupMenu.PopupMenuItem(
-            _('Current: ') + this._brightnessModule.getCurrentBrightness() + '%'
-        );
-        currentBrightnessItem.reactive = false;
-        currentBrightnessItem.can_focus = false;
-        brightnessSection.menu.addMenuItem(currentBrightnessItem);
-
-        brightnessSection.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        // Get brightness profiles from settings
-        let profiles = this._settings.get_value('brightness-profiles').deep_unpack();
-
-        // Add profile options
-        for (let profileName in profiles) {
-            let profileValue = profiles[profileName];
-            let displayValue = typeof profileValue === 'number' ? profileValue : parseInt(profileValue);
-            let profileItem = new PopupMenu.PopupMenuItem(`${profileName} (${displayValue}%)`);
-
-            // Mark active profile
-            if (this._brightnessModule.getCurrentBrightness() === displayValue) {
-                profileItem.setOrnament(PopupMenu.Ornament.CHECK);
-            }
-
-            profileItem.connect('activate', () => {
-                this._brightnessModule.applyProfile(profileName);
-                // Refresh menu to show active profile
-                this._rebuildBrightnessSection();
-            });
-            brightnessSection.menu.addMenuItem(profileItem);
-        }
-
-        this.menu.addMenuItem(brightnessSection);
-    }
-
-    /**
-     * Rebuild brightness section (e.g., after profile change)
-     */
-    _rebuildBrightnessSection() {
-        // Remove existing brightness section
-        // Note: This is a simplified approach - in a production extension,
-        // you'd want to track menu items more carefully
-        // For now, we'll just close and rebuild the menu
-        this.menu.removeAll();
-        this._buildMenu();
-    }
-
-    /**
-     * Build obsidian vault section
-     */
-    _buildObsidianSection() {
-        let obsidianSection = new PopupMenu.PopupSubMenuMenuItem(_('Obsidian Vaults'), true);
-
-        // Get vault search paths from settings
-        let searchPaths = this._settings.get_value('vault-search-paths').deep_unpack();
-
-        // Scan for vaults (placeholder implementation)
-        for (let path of searchPaths) {
-            let vaultItem = new PopupMenu.PopupMenuItem(path);
-            vaultItem.connect('activate', () => {
-                this._openObsidianVault(path);
-            });
-            obsidianSection.menu.addMenuItem(vaultItem);
-        }
-
-        this.menu.addMenuItem(obsidianSection);
-    }
-
-    /**
-     * Update brightness hot sensor in panel
-     */
-    _updateBrightnessHotSensor() {
-        if (this._brightnessHotLabel) {
-            let brightness = this._brightnessModule.getCurrentBrightness();
-            this._brightnessHotLabel.text = brightness + '%';
-        }
-    }
-
-    /**
-     * Update poll interval
-     */
-    _updatePollInterval() {
-        let newInterval = this._settings.get_int('update-time');
-        if (newInterval !== this._brightnessModule._pollInterval) {
-            this._brightnessModule.stopPolling();
-            this._brightnessModule._pollInterval = newInterval;
-            this._brightnessModule.startPolling();
-        }
-    }
-
-    /**
-     * Open Obsidian vault
-     */
-    _openObsidianVault(path) {
-        // This will be implemented in Phase 4
-        GLib.spawn_async(null, ['obsidian', path], null, GLib.SpawnFlags.SEARCH_PATH, null);
-    }
-
-    /**
-     * Create icon based on theme
-     */
-    _createIcon(iconName) {
-        let iconStyle = this._settings.get_string('icon-style');
-        let themeIndex = iconStyle === 'original' ? 0 : 1;
-        let iconPath = this._sensorsIconPathPrefix[themeIndex] + iconName;
-
-        let gicon = Gio.icon_new_for_string(iconPath);
-        let icon = new St.Icon({
-            gicon: gicon,
-            icon_size: 16
-        });
-
-        return icon;
-    }
-
-    /**
-     * Update visibility based on settings
-     */
-    _updateVisibility() {
-        if (this._brightnessButton) {
-            this._brightnessButton.visible = this._settings.get_boolean('show-brightness');
-        }
-
-        if (this._obsidianButton) {
-            this._obsidianButton.visible = this._settings.get_boolean('show-obsidian');
-        }
-    }
-
-    /**
-     * Update icons when theme changes
-     */
-    _iconStyleChanged() {
-        if (this._brightnessButton && this._brightnessButton.child) {
-            let brightnessIcon = this._createIcon('brightness-symbolic.svg');
-            this._brightnessButton.set_child(brightnessIcon);
-        }
-
-        if (this._obsidianButton && this._obsidianButton.child) {
-            let obsidianIcon = this._createIcon('obsidian-symbolic.svg');
-            this._obsidianButton.set_child(obsidianIcon);
-        }
-    }
-
-    /**
-     * Add settings change signal
-     */
-    _addSettingChangedSignal(key, callback) {
-        let signalId = this._settings.connect('changed::' + key, callback);
-        this._settingChangedSignals.push(signalId);
-    }
-
-    /**
-     * Show about dialog
-     */
-    _showAbout() {
-        // About dialog - TODO: implement proper modal dialog
-        log('[System Tools] About: Version 0.1.0 - Unified system tools for brightness control and Obsidian vault management.');
-    }
-
-    /**
-     * Clean up resources
-     */
-    destroy() {
-        // Disconnect all settings signals
-        for (let signalId of this._settingChangedSignals) {
-            this._settings.disconnect(signalId);
-        }
-        this._settingChangedSignals = [];
-
-        // Stop brightness module polling
-        if (this._brightnessModule) {
-            this._brightnessModule.destroy();
-            this._brightnessModule = null;
-        }
-
-        // Remove children
-        if (this._menuLayout) {
-            this._menuLayout.destroy();
-        }
-
-        super.destroy();
-    }
-});
-
-/**
- * System Tools Extension - Main extension class
- */
 export default class SystemToolsExtension extends Extension {
     enable() {
-        log('[System Tools] Enabling extension...');
+        try {
+            console.log('[SystemTools] Enabling extension...');
 
-        systemToolsMenu = new SystemToolsMenuButton(this);
-        Main.panel.addToStatusArea(this.uuid, systemToolsMenu);
+            // Carregar settings com tratamento de erros
+            let settings = null;
+            try {
+                settings = this.getSettings();
+                console.log('[SystemTools] Settings loaded successfully');
+            } catch (e) {
+                console.warn(`[SystemTools] Could not load settings: ${e.message}`);
+            }
 
-        log('[System Tools] Extension enabled successfully');
+            this._indicator = new SystemToolsButton(settings);
+            Main.panel.addToStatusArea(this.uuid, this._indicator, 0, 'right');
+            console.log('[SystemTools] Extension enabled successfully');
+        } catch (e) {
+            console.error(`[SystemTools] Error enabling extension: ${e}`);
+            console.error(`[SystemTools] Stack trace: ${e.stack}`);
+        }
     }
 
     disable() {
-        log('[System Tools] Disabling extension...');
-
-        if (systemToolsMenu) {
-            systemToolsMenu.destroy();
-            systemToolsMenu = null;
+        try {
+            console.log('[SystemTools] Disabling extension...');
+            if (this._indicator) {
+                this._indicator.destroy();
+                this._indicator = null;
+            }
+            console.log('[SystemTools] Extension disabled successfully');
+        } catch (e) {
+            console.error(`[SystemTools] Error disabling extension: ${e}`);
         }
-
-        log('[System Tools] Extension disabled successfully');
     }
 }
