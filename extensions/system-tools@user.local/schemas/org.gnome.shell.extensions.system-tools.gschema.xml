@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="system-tools">
+  <schema id="org.gnome.shell.extensions.system-tools" path="/org/gnome/shell/extensions/system-tools/">
+
+    <!-- General Settings -->
+    <key name="icon-style" type="s">
+      <default>'gnome'</default>
+      <summary>Icon style theme</summary>
+      <description>Icon style theme to use (original or gnome)</description>
+    </key>
+
+    <key name="update-time" type="i">
+      <default>5</default>
+      <summary>Update time in seconds</summary>
+      <description>Time in seconds between updates (0 to disable)</description>
+    </key>
+
+    <!-- Brightness Settings -->
+    <key name="show-brightness" type="b">
+      <default>true</default>
+      <summary>Show brightness widget</summary>
+      <description>Whether to show the brightness widget in the panel</description>
+    </key>
+
+    <key name="brightness-profiles" type="a{ss}">
+      <default>{'normal': '100', 'comfort': '80', 'dark': '70'}</default>
+      <summary>Brightness profiles</summary>
+      <description>Brightness profiles with brightness and gamma values</description>
+    </key>
+
+    <key name="default-brightness-profile" type="s">
+      <default>'normal'</default>
+      <summary>Default brightness profile</summary>
+      <description>Default brightness profile to use on startup</description>
+    </key>
+
+    <key name="brightness-poll-interval" type="i">
+      <default>5</default>
+      <summary>Brightness poll interval (seconds)</summary>
+      <description>Time in seconds between brightness updates</description>
+    </key>
+
+    <key name="show-brightness-in-panel" type="b">
+      <default>true</default>
+      <summary>Show brightness value in panel</summary>
+      <description>Display current brightness percentage in panel</description>
+    </key>
+
+    <!-- Obsidian Settings -->
+    <key name="show-obsidian" type="b">
+      <default>true</default>
+      <summary>Show Obsidian widget</summary>
+      <description>Whether to show the Obsidian widget in the panel</description>
+    </key>
+
+    <key name="vault-search-paths" type="as">
+      <default>['/home/user/Documentos', '/home/user/personal', '/home/user/Micologia']</default>
+      <summary>Vault search paths</summary>
+      <description>Directories to search for Obsidian vaults</description>
+    </key>
+
+  </schema>
+</schemalist>

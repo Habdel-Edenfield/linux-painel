@@ -1,0 +1,118 @@
+/*
+ * System Tools GNOME Shell Extension
+ * Vitals-inspired styling
+ */
+
+/* Panel Icons */
+.vitals-panel-icon {
+  margin: 0 1px 0 8px;
+  padding: 0;
+}
+
+.vitals-panel-icon-brightness {
+  margin: 0 2px 0 8px;
+  padding: 0;
+}
+
+.vitals-panel-icon-obsidian {
+  margin: 0 2px 0 8px;
+  padding: 0;
+}
+
+/* Panel Labels */
+.vitals-panel-label {
+  margin: 0 3px 0 0;
+  padding: 0;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+/* Hot Sensor Display */
+.hot-sensor-value {
+  font-size: 0.9em;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Button Actions */
+.vitals-button-action {
+  padding: 10px;
+  border-radius: 32px;
+  min-width: 22px;
+  min-height: 22px;
+  border: 1px solid transparent;
+}
+
+.vitals-button-action:hover,
+.vitals-button-action:focus {
+  border-color: #777;
+}
+
+/* Button Container */
+.vitals-button-box {
+  padding: 0px;
+  spacing: 22px;
+}
+
+/* Submenu Styling */
+.vitals-submenu {
+  padding: 0;
+}
+
+.vitals-submenu-item {
+  padding: 8px 12px;
+}
+
+.vitals-submenu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Brightness Controls */
+.brightness-slider {
+  padding: 0 12px;
+}
+
+.brightness-profile-item {
+  padding: 8px 12px;
+}
+
+.brightness-profile-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.brightness-profile-item.active {
+  background-color: rgba(255, 255, 255, 0.15);
+  font-weight: bold;
+}
+
+/* Obsidian Controls */
+.obsidian-vault-item {
+  padding: 8px 12px;
+}
+
+.obsidian-vault-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.obsidian-vault-count {
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.6);
+  margin-left: 8px;
+}
+
+/* Status Indicators */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin: 0 4px;
+}
+
+.status-dot.active {
+  background-color: #4ade80;
+}
+
+.status-dot.inactive {
+  background-color: #f87171;
+}

@@ -8,7 +8,7 @@ cli:
 
 event_loop:
   prompt_file: "PROMPT.md"
-  completion_promise: "TASK_COMPLETE"
+  completion_promise: "LOOP_COMPLETE"
   max_iterations: 50
   max_consecutive_failures: 3
   timeout_seconds: 300
@@ -19,6 +19,18 @@ core:
   scratchpad_path: ".ralph/agent/scratchpad.md"
   memories_path: ".ralph/agent/memories.md"
   tasks_path: ".ralph/agent/tasks.jsonl"
+
+memories:
+  enabled: true
+  inject: auto              # Default: injeta memórias automaticamente em cada iteração
+  budget: 0                # 0 = sem limite de tokens
+  filter:
+    types: []              # Vazio = todos os tipos
+    tags: []               # Vazio = todas as tags
+    recent: 0              # 0 = sem limite de tempo
+
+tasks:
+  enabled: true             # Habilita sistema de tarefas
 
 skills:
   enabled: true
