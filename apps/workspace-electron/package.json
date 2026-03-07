@@ -1,0 +1,33 @@
+{
+  "name": "@linux-painel/workspace-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron workspace foundation for Linux Painel",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n tsc,vite,electron -c blue,magenta,yellow \"npm:dev:tsc\" \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:tsc": "tsc -p tsconfig.app.json --watch --preserveWatchOutput",
+    "dev:renderer": "vite",
+    "dev:electron": "wait-on tcp:127.0.0.1:5173 file:dist/main/main.js file:dist/preload/index.js && VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron --no-sandbox .",
+    "build": "npm run build:electron && npm run build:renderer",
+    "build:electron": "tsc -p tsconfig.app.json",
+    "build:renderer": "vite build",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "start": "electron --no-sandbox ."
+  },
+  "dependencies": {
+    "electron": "^40.8.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1",
+    "wait-on": "^8.0.5"
+  }
+}

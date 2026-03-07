@@ -1,0 +1,61 @@
+:root {
+  color-scheme: dark;
+  font-family: Cantarell, "Noto Sans", sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(84, 104, 255, 0.18), transparent 42%),
+    linear-gradient(180deg, #10182d 0%, #090d18 100%);
+  color: #f4f7fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+}
+
+.app-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 32px;
+}
+
+.hero-card {
+  width: min(640px, 100%);
+  padding: 32px;
+  border: 1px solid rgba(214, 223, 255, 0.14);
+  border-radius: 24px;
+  background: rgba(9, 13, 24, 0.82);
+  box-shadow: 0 24px 80px rgba(4, 8, 17, 0.45);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #93b7ff;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.05;
+}
+
+.body-copy {
+  margin: 0;
+  max-width: 52ch;
+  color: #d7def3;
+  line-height: 1.6;
+}
