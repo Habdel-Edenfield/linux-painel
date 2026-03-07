@@ -53,8 +53,8 @@ Detalhes:
 3. Manter o prototipo GTK3 congelado como referencia.
 4. Entregar primeiro a fundacao do shell Electron, depois slots horizontais, terminais, modulos laterais e browser embutido.
 
-## Bloqueio atual para GitHub
+## Publicacao no GitHub
 
-- O clone local esta pronto para push, mas o ambiente atual nao tem credencial configurada para `https://github.com`.
-- O push falhou com `fatal: could not read Username for 'https://github.com': No such device or address`.
-- Sem autenticar o git neste ambiente, o handoff acima continua apenas local.
+- `archive/pre-reset-20260307` foi publicada no remoto para preservar a arvore anterior.
+- `master` foi atualizada para o snapshot GTK3 do Terminal Multi-Pane.
+- `investigation/workspace-architecture-20260307` foi publicada com a auditoria, o ADR, o roteiro de migracao e este handoff.
