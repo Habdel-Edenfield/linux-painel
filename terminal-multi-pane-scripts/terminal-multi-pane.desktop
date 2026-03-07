@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Terminal Multi-Pane
+Name[pt_BR]=Terminal Multi-Pane
+Comment=Multi-terminal pane manager with system tray indicator
+Comment[pt_BR]=Gerenciador de terminais com múltiplos painéis
+Exec=terminal-multi-pane --show
+Icon=utilities-terminal
+Type=Application
+Terminal=false
+Categories=Utility;System;TerminalEmulator;
+StartupNotify=true

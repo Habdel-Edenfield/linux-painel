@@ -1,0 +1,12 @@
+{
+  "name": "System Tools",
+  "description": "Controle de brilho e outras configurações de sistema no painel do GNOME.",
+  "uuid": "system-tools@user.local",
+  "shell-version": [
+    "46"
+  ],
+  "original-authors": [
+    "antigravity"
+  ],
+  "url": ""
+}

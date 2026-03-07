@@ -1,0 +1,15 @@
+.terminal-multi-pane-panel-button {
+    padding: 0 4px;
+}
+
+.terminal-multi-pane-panel-box {
+    spacing: 0;
+}
+
+.terminal-multi-pane-icon {
+    icon-size: 16px;
+}
+
+.terminal-multi-pane-menu-item {
+    spacing: 8px;
+}

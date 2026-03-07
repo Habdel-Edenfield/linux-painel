@@ -1,0 +1,513 @@
+// -*- mode: js; -*-
+/* Terminal Multi-Pane Extension for GNOME Shell
+ * Gerenciador de terminais com múltiplos painéis
+ */
+
+const ExtensionUtils = imports.misc.extensionUtils;
+const { GObject, St, Clutter, GLib } = imports.gi;
+const Main = imports.ui.main;
+
+// Configurações
+const TERMINAL_CMD = 'gnome-terminal';
+
+// Classes do Modal
+var TerminalColumn = GObject.registerClass({
+    GTypeName: 'TerminalColumn',
+    Extends: GObject.type_from_name('Clutter.Actor'),
+
+    _init(params) {
+        this.index = params.index;
+        this.app = params.app;
+
+        // Container principal da coluna
+        this.actor = new St.BoxLayout({
+            vertical: true,
+            style_class: 'column-container',
+            x_expand: true,
+            y_expand: true
+        });
+
+        // Header da coluna
+        const headerBox = new St.BoxLayout({
+            horizontal: true,
+            style_class: 'column-header'
+        });
+
+        const label = new St.Label({
+            text: params.name,
+            style_class: 'column-label'
+        });
+        label.set_x_align(Clutter.ActorAlign.START);
+        label.set_x_expand(true);
+        headerBox.add_child(label);
+
+        // Botão para adicionar terminal
+        const addButton = new St.Button({
+            label: '+',
+            style_class: 'add-terminal-button',
+            can_focus: true
+        });
+        addButton.connect('clicked', () => {
+            this.emit('add-terminal');
+        });
+        addButton.set_tooltip_text('Novo terminal (Ctrl+Shift+T)');
+        headerBox.add_child(addButton);
+
+        this.actor.add_child(headerBox);
+
+        // Scroll container
+        const scrollView = new St.ScrollView({
+            style_class: 'column-scroll',
+            vexpand: true,
+            hexpand: true
+        });
+        this.actor.add_child(scrollView);
+
+        // Container de terminais
+        this.terminalBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'terminal-box',
+            vexpand: true,
+            hexpand: true
+        });
+        scrollView.add_actor(this.terminalBox);
+
+        // Setup drag-and-drop
+        this._setupDragDrop();
+    },
+
+    _setupDragDrop() {
+        // Drop target para receber terminais
+        this._dropTarget = new Clutter.DropTarget({
+            actions: Clutter.DragAction.MOVE,
+            types: ['terminal-wrapper']
+        });
+
+        this._dropTarget.connect('drop', (target, actor, x, y) => {
+            // Drop de terminal
+            const wrapper = actor.source;
+            const oldParent = wrapper.get_parent();
+            if (oldParent) {
+                oldParent.remove_child(wrapper);
+                this.terminalBox.add_child(wrapper);
+            }
+            this._removeDropHighlight();
+            return Clutter.DragAction.MOVE;
+        });
+
+        this._dropTarget.connect('drag-over', (target, actor, x, y) => {
+            this._addDropHighlight();
+            return true;
+        });
+
+        this._dropTarget.connect('drag-leave', (target) => {
+            this._removeDropHighlight();
+        });
+
+        // Drag source para permitir arrastar desta coluna
+        this._dragSource = new Clutter.DragSource({
+            actions: Clutter.DragAction.MOVE
+        });
+        this._dragSource.connect('drag-begin', (source, actor) => {
+            this.actor.add_style_class_name('dragging');
+        });
+        this._dragSource.connect('drag-end', (source, actor) => {
+            this.actor.remove_style_class_name('dragging');
+        });
+
+        this.actor.add_actor(this._dropTarget);
+        this.actor.add_actor(this._dragSource);
+    },
+
+    _addDropHighlight() {
+        this.actor.add_style_class_name('drop-hover');
+    },
+
+    _removeDropHighlight() {
+        this.actor.remove_style_class_name('drop-hover');
+    },
+
+    addTerminal() {
+        // Cria novo terminal via subprocesso gnome-terminal
+        const wrapper = this._createTerminalWrapper();
+        this.terminalBox.add_child(wrapper);
+        this.app.emit('terminal-created', { index: this.index });
+    },
+
+    _createTerminalWrapper() {
+        // Cria wrapper para terminal subprocesso
+        const wrapper = new St.BoxLayout({
+            vertical: true,
+            style_class: 'terminal-wrapper'
+        });
+
+        // Header com drag handle e botão de fechar
+        const header = new St.BoxLayout({
+            horizontal: true,
+            style_class: 'terminal-header'
+        });
+
+        const dragHandle = new St.Label({
+            text: '⋮⋮',
+            style_class: 'drag-handle',
+            reactive: true
+        });
+        header.add_child(dragHandle);
+
+        const title = new St.Label({
+            text: 'zsh',
+            style_class: 'terminal-title'
+        });
+        title.set_x_align(Clutter.ActorAlign.START);
+        title.set_x_expand(true);
+        header.add_child(title);
+
+        const closeButton = new St.Button({
+            label: '✕',
+            style_class: 'terminal-close-button',
+            can_focus: false
+        });
+        closeButton.connect('clicked', () => {
+            this._closeTerminal(wrapper);
+        });
+        header.add_child(closeButton);
+
+        wrapper.add_child(header);
+
+        // Cria um subprocesso para o terminal
+        const terminalId = Date.now() + '_' + Math.random().toString(36).substr(2);
+        const cmd = [TERMINAL_CMD, '--geometry=80x24'];
+        const proc = GLib.spawn_async(
+            null,
+            cmd,
+            GLib.SpawnFlags.SEARCH_PATH_FROM_ENVP,
+            null
+        );
+
+        wrapper.connect('destroy', () => {
+            // Fecha o terminal ao destruir o wrapper
+            GLib.spawn_command_line_async(
+                TERMINAL_CMD,
+                ['--window', terminalId]
+            );
+        });
+
+        wrapper.connect('button-press-event', (actor, event) => {
+            if (event.get_button() === Clutter.BUTTON_SECONDARY) {
+                this._showTerminalMenu(wrapper);
+            }
+        });
+
+        // Drag source para permitir arrastar
+        const dragSource = new Clutter.DragSource({
+            actions: Clutter.DragAction.MOVE
+        });
+        dragSource.connect('drag-begin', (source, actor) => {
+            wrapper.add_style_class_name('dragging');
+        });
+        dragSource.connect('drag-end', (source, actor) => {
+            wrapper.remove_style_class_name('dragging');
+        });
+        wrapper.add_actor(dragSource);
+
+        return {
+            actor: wrapper,
+            terminalId: terminalId,
+            close: () => {
+                wrapper.destroy();
+            },
+            menu: () => this._showTerminalMenu(wrapper)
+        };
+    },
+
+    _closeTerminal(wrapper) {
+        wrapper.destroy();
+    },
+
+    _showTerminalMenu(wrapper) {
+        const menu = new St.Menu({
+            close_on_unfocus: true
+        });
+
+        const copyItem = new St.MenuItem({
+            label: 'Copiar'
+        });
+        copyItem.connect('activate', () => {
+            // Copia seria requerir acesso ao clipboard do terminal subprocesso
+            // Por enquanto, apenas fecha o menu
+            menu.close();
+        });
+        menu.add_item(copyItem);
+
+        const pasteItem = new St.MenuItem({
+            label: 'Colar'
+        });
+        pasteItem.connect('activate', () => {
+            // Colar também seria complexo com subprocesso
+            menu.close();
+        });
+        menu.add_item(pasteItem);
+
+        menu.add_item(new St.SeparatorMenuItem());
+        menu.add_item(new St.MenuItem({
+            label: 'Fechar'
+        }));
+        menu.item_at(-1).connect('activate', () => {
+            this._closeTerminal(wrapper);
+            menu.close();
+        });
+
+        menu.open(actor);
+    },
+
+    getActiveColumnIndex() {
+        // Determina qual coluna está ativa (para atalho Ctrl+Shift+T)
+        if (this.actor.has_focus()) {
+            return this.index;
+        }
+        return -1;
+    }
+});
+
+
+var MultiPaneModal = GObject.registerClass({
+    GTypeName: 'MultiPaneModal',
+    Extends: GObject.type_from_name('Clutter.Actor'),
+
+    _init(params) {
+        this.parent(params);
+        this.columnCount = 3;
+        this.columns = [];
+        this.hpaned = null;
+        this.isFullscreen = false;
+
+        // Criar 3 colunas
+        this._createColumns();
+    },
+
+    _createColumns() {
+        const count = this.columnCount;
+        this.columns = [];
+
+        for (let i = 0; i < count; i++) {
+            const column = new TerminalColumn({
+                name: `Coluna ${i + 1}`,
+                index: i,
+                app: this
+            });
+            this.columns.push(column);
+        }
+
+        // Criar HPaned para dividir as colunas
+        this.hpaned = new St.Paned({
+            orientation: Clutter.Orientation.HORIZONTAL,
+            hexpand: true,
+            vexpand: true
+        });
+
+        for (const column of this.columns) {
+            this.hpaned.add_actor(column.actor);
+        }
+    },
+
+    open() {
+        if (this.actor) {
+            this.actor.show();
+        this.actor.raise_top();
+        } else {
+            this.createActor();
+        }
+    },
+
+    createActor() {
+        // Criar modal principal
+        this.actor = new St.BoxLayout({
+            vertical: true,
+            style_class: 'modal-container',
+            width: 1920,
+            height: 1080
+        });
+
+        // Botão de fechar
+        const closeButton = new St.Button({
+            label: '✕ Fechar [Esc]',
+            style_class: 'close-button'
+        });
+        closeButton.connect('clicked', () => this.close());
+        closeButton.set_x_align(Clutter.ActorAlign.END);
+        closeButton.set_y_align(Clutter.ActorAlign.START);
+        closeButton.set_margin_top(12);
+        closeButton.set_margin_end(12);
+
+        // Container com as colunas
+        const mainContent = new St.BoxLayout({
+            vertical: true,
+            y_expand: true
+        });
+
+        mainContent.add_child(this.hpaned);
+
+        // Adicionar terminais iniciais
+        GLib.timeout_add(100, () => this.columns[0].addTerminal());
+        GLib.timeout_add(200, () => this.columns[1].addTerminal());
+        GLib.timeout_add(300, () => this.columns[2].addTerminal());
+
+        // Organizar layout
+        this.actor.add_child(mainContent);
+        this.actor.add_child(closeButton);
+
+        // Configurar key bindings
+        this._setupKeyBindings();
+
+        // Conectar para fullscreen toggle
+        this.connect('toggle-fullscreen', () => {
+            this._toggleFullscreen();
+        });
+
+        // Conectar para adicionar terminal
+        for (const column of this.columns) {
+            column.connect('add-terminal', () => {
+                if (column.getActiveColumnIndex() === column.index) {
+                    column.addTerminal();
+                }
+            });
+        }
+
+        // Conectar para drop de terminal entre colunas
+        for (let i = 0; i < this.columns.length; i++) {
+            const targetColumn = this.columns[i];
+            for (let j = 0; j < this.columns.length; j++) {
+                if (i !== j) {
+                    const sourceColumn = this.columns[j];
+                    sourceColumn.connect('drop-terminal', (params) => {
+                        const wrapper = params.terminalWrapper;
+                        targetColumn.terminalBox.add_child(wrapper);
+                    });
+                }
+            }
+        }
+    },
+
+    _setupKeyBindings() {
+        // Esc para fechar
+        this._escKey = new Clutter.KeyBinding({
+            keyval: Clutter.KEY_Escape
+        });
+        this._escKey.connect('activate', () => this.close());
+        Main.wm.addKeybinding(this._escKey);
+
+        // F11 para fullscreen
+        this._fullscreenKey = new Clutter.KeyBinding({
+            keyval: Clutter.KEY_F11
+        });
+        this._fullscreenKey.connect('activate', () => this._toggleFullscreen());
+        Main.wm.addKeybinding(this._fullscreenKey);
+    },
+
+    _toggleFullscreen() {
+        if (Main.layoutManager.monitors.length > 0) {
+            if (this.isFullscreen) {
+                Main.layoutManager.monitors[0].unmake_fullscreen();
+            } else {
+                Main.layoutManager.monitors[0].make_fullscreen();
+            }
+            this.isFullscreen = !this.isFullscreen;
+        }
+    },
+
+    close() {
+        if (this.isFullscreen) {
+            Main.layoutManager.monitors[0].unmake_fullscreen();
+        }
+        if (this.actor) {
+            this.actor.hide();
+        }
+        this.isFullscreen = false;
+    },
+
+    destroy() {
+        // Destruir todos os terminais
+        for (const column of this.columns) {
+            // Fechar todos os subprocessos gnome-terminal
+            column.terminalBox.destroy_all_children();
+        }
+
+        // Remover key bindings
+        Main.wm.removeKeybinding(this._escKey);
+        Main.wm.removeKeybinding(this._fullscreenKey);
+
+        this.parent();
+    }
+});
+
+
+var TerminalMultiPaneExtension = GObject.registerClass({
+    GTypeName: 'TerminalMultiPaneExtension',
+    Extends: ExtensionUtils.Extension,
+
+    _init() {
+        this._button = null;
+        this._modal = null;
+    },
+
+    enable() {
+        // Adicionar botão ao painel
+        this._button = new TerminalMultiPaneButton();
+        this._button.actor.add_style_class_name('panel-status-indicator');
+        Main.panel.addToStatusArea(this._button.actor, 0);
+
+        // Configurar atalho Ctrl+Alt+T para abrir
+        this._openKeyBinding = new GlobalKey({
+            name: 'open-terminal-modal',
+            accelerator: '<Control><Alt>t'
+        });
+        this._openKeyBinding.connect('activate', () => this._openModal());
+        Main.wm.addKeybinding(this._openKeyBinding);
+
+        // Atalho Esc para fechar modal (adicional)
+        this._closeKeyBinding = new GlobalKey({
+            name: 'close-terminal-modal',
+            accelerator: 'Escape'
+        });
+        this._closeKeyBinding.connect('activate', () => {
+            if (this._modal) {
+                this._modal.close();
+            }
+        });
+        Main.wm.addKeybinding(this._closeKeyBinding);
+    },
+
+    disable() {
+        // Remover botão do painel e destruir modal
+        if (this._button) {
+            Main.panel.removeFromStatusArea(this._button.actor);
+        }
+
+        if (this._modal) {
+            this._modal.destroy();
+            this._modal = null;
+        }
+
+        // Remover key bindings
+        Main.wm.removeKeybinding(this._openKeyBinding);
+        Main.wm.removeKeybinding(this._closeKeyBinding);
+    },
+
+    _openModal() {
+        if (!this._modal) {
+            this._modal = new MultiPaneModal({ columnCount: 3 });
+            this._modal.connect('close', this._onModalClose.bind(this));
+            this._modal.open();
+        } else {
+            this._modal.open();
+        }
+    },
+
+    _onModalClose() {
+        this._modal = null;
+    }
+});
+
+function init() {
+    const extension = new TerminalMultiPaneExtension();
+}

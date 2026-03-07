@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="terminal-multi-pane">
+  <schema id="org.gnome.shell.extensions.terminal-multi-pane" path="/org/gnome/shell/extensions/terminal-multi-pane/">
+
+    <!-- Configurações de colunas -->
+    <key name="column-count" type="i">
+      <default>3</default>
+      <summary>Número de colunas</summary>
+      <description>Número de colunas de terminal (mínimo: 1, máximo: 6)</description>
+    </key>
+
+    <key name="default-shell" type="s">
+      <default>/bin/zsh</default>
+      <summary>Shell padrão</summary>
+      <description>Comando do shell a ser usado</description>
+    </key>
+
+    <key name="terminal-font" type="s">
+      <default>Monospace 11</default>
+      <summary>Fonte do terminal</summary>
+      <description>Fonte e tamanho da fonte</description>
+    </key>
+
+    <key name="show-terminal-header" type="b">
+      <default>true</default>
+      <summary>Mostrar header do terminal</summary>
+      <description>Mostrar a barra de título de cada terminal</description>
+    </key>
+
+  </schema>
+</schemalist>

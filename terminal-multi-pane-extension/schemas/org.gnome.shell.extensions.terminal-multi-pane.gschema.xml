@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="terminal-multi-pane">
+  <schema id="org.gnome.shell.extensions.terminal-multi-pane" path="/org/gnome/shell/extensions/terminal-multi-pane/">
+    <key name="app-path" type="s">
+      <default>''</default>
+      <summary>Caminho do app Python</summary>
+      <description>Se vazio, usa ~/.local/share/terminal-multi-pane/terminal-multi-pane.py</description>
+    </key>
+
+  </schema>
+</schemalist>

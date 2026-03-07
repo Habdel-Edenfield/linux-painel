@@ -1,0 +1,139 @@
+/**
+ * Test script for BrightnessModule - FASE 4
+ *
+ * Para testar:
+ * 1. Desabilitar a extensão: gnome-extensions disable system-tools@user.local
+ * 2. Habilitar esta versão de teste
+ * 3. Ver logs: journalctl -u gnome-shell -f
+ */
+
+import Clutter from 'gi://Clutter';
+import St from 'gi://St';
+import GObject from 'gi://GObject';
+
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+
+import { BrightnessModule } from './BrightnessModule.js';
+
+
+const BrightnessTestButton = GObject.registerClass(
+    class BrightnessTestButton extends PanelMenu.Button {
+        _init() {
+            super._init(0.5, 'Brightness Test');
+
+            this._brightnessModule = new BrightnessModule();
+
+            // Container
+            this._box = new St.BoxLayout({
+                style_class: 'panel-status-menu-box',
+            });
+
+            // Label mostrando brilho atual
+            this._label = new St.Label({
+                text: '🔆 ???%',
+                y_align: Clutter.ActorAlign.CENTER
+            });
+
+            this._box.add_child(this._label);
+            this.add_child(this._box);
+
+            // Menu de teste
+            this._buildTestMenu();
+
+            // Atualizar label com brilho atual
+            this._updateBrightnessLabel();
+
+            console.log('[BrightnessTest] Test button initialized');
+        }
+
+        _updateBrightnessLabel() {
+            const percent = this._brightnessModule.getBrightnessPercent();
+            if (percent !== null) {
+                this._label.text = `🔆 ${percent}%`;
+            } else {
+                this._label.text = '🔆 ERR';
+            }
+        }
+
+        _buildTestMenu() {
+            // Botão para ler brilho
+            let readItem = new PopupMenu.PopupMenuItem('🔎 Ler brilho atual');
+            readItem.connect('activate', () => {
+                const value = this._brightnessModule.getBrightness();
+                const percent = this._brightnessModule.getBrightnessPercent();
+                console.log(`[BrightnessTest] Brightness: ${value} (${percent}%)`);
+                this._updateBrightnessLabel();
+            });
+            this.menu.addMenuItem(readItem);
+
+            // Botão para definir brilho 100%
+            let maxItem = new PopupMenu.PopupMenuItem('☀️ Brilho 100%');
+            maxItem.connect('activate', () => {
+                this._brightnessModule.setBrightnessPercent(100);
+                this._updateBrightnessLabel();
+            });
+            this.menu.addMenuItem(maxItem);
+
+            // Botão para definir brilho 80%
+            let item80 = new PopupMenu.PopupMenuItem('🌗 Brilho 80%');
+            item80.connect('activate', () => {
+                this._brightnessModule.setBrightnessPercent(80);
+                this._updateBrightnessLabel();
+            });
+            this.menu.addMenuItem(item80);
+
+            // Botão para definir brilho 50%
+            let item50 = new PopupMenu.PopupMenuItem('🌑 Brilho 50%');
+            item50.connect('activate', () => {
+                this._brightnessModule.setBrightnessPercent(50);
+                this._updateBrightnessLabel();
+            });
+            this.menu.addMenuItem(item50);
+
+            // Separador
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+            // Info
+            let infoItem = new PopupMenu.PopupMenuItem('FASE 4 - Brightness Test');
+            infoItem.setSensitive(false);
+            this.menu.addMenuItem(infoItem);
+
+            // Output name
+            let outputName = this._brightnessModule.getOutputName();
+            let outputItem = new PopupMenu.PopupMenuItem(`Output: ${outputName || 'None'}`);
+            outputItem.setSensitive(false);
+            this.menu.addMenuItem(outputItem);
+        }
+    });
+
+
+export default class BrightnessTestExtension extends Extension {
+    enable() {
+        try {
+            console.log('[BrightnessTest] Enabling test extension...');
+
+            this._indicator = new BrightnessTestButton();
+            Main.panel.addToStatusArea(this.uuid, this._indicator, 0, 'right');
+            console.log('[BrightnessTest] Test extension enabled successfully');
+        } catch (e) {
+            console.error(`[BrightnessTest] Error enabling: ${e}`);
+            console.error(`[BrightnessTest] Stack trace: ${e.stack}`);
+        }
+    }
+
+    disable() {
+        try {
+            console.log('[BrightnessTest] Disabling test extension...');
+            if (this._indicator) {
+                this._indicator.destroy();
+                this._indicator = null;
+            }
+            console.log('[BrightnessTest] Test extension disabled successfully');
+        } catch (e) {
+            console.error(`[BrightnessTest] Error disabling: ${e}`);
+        }
+    }
+}

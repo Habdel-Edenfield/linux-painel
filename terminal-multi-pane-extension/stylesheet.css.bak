@@ -1,0 +1,127 @@
+/* Botão no painel */
+.panel-button {
+    padding: 4px 8px;
+}
+
+.panel-button StIcon {
+    icon-size: 16px;
+}
+
+.panel-button:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Modal principal */
+.modal-container {
+    background-color: #1e1e1e;
+    color: white;
+    spacing: 0;
+}
+
+/* Colunas */
+.column-container {
+    background-color: rgba(40, 40, 40, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 4px;
+    margin: 4px;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.column-container.drop-hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.column-header {
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 8px 12px;
+    border-radius: 6px 6px 0 0;
+}
+
+.column-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    font-size: 0.95em;
+}
+
+.add-terminal-button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.add-terminal-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.column-scroll {
+    vexpand: true;
+    hexpand: true;
+}
+
+.terminal-box {
+    vexpand: true;
+    hexpand: true;
+    padding: 4px;
+}
+
+/* Terminal wrapper */
+.terminal-wrapper {
+    background-color: rgba(0, 0, 0, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.terminal-wrapper.dragging {
+    opacity: 0.5;
+}
+
+.terminal-header {
+    background-color: rgba(30, 30, 30, 0.95);
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.drag-handle {
+    color: rgba(255, 255, 255, 0.4);
+    cursor: grab;
+}
+
+.terminal-title {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85em;
+}
+
+.terminal-close-button {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.terminal-close-button:hover {
+    color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 100, 100, 0.4);
+}
+
+/* Botão de fechar */
+.close-button {
+    min-width: 120px;
+    min-height: 40px;
+    padding: 0 20px;
+    border-radius: 20px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-weight: 500;
+}
+
+.close-button:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+}

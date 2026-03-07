@@ -1,0 +1,9 @@
+{
+  "name": "Terminal Multi-Pane",
+  "description": "Launcher minimalista de multi-pane para o GNOME Shell 46.",
+  "uuid": "terminal-multi-pane@habdel.local",
+  "shell-version": ["46"],
+  "url": "",
+  "version": 2,
+  "settings-schema": "org.gnome.shell.extensions.terminal-multi-pane"
+}
