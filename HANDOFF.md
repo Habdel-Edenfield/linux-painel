@@ -9,13 +9,11 @@ Data: 2026-03-07
 - Branch local `archive/pre-reset-20260307`: preserva o antigo `origin/master`
 - Branch local `investigation/workspace-architecture-20260307`: auditoria, ADR e roadmap da proxima geracao
 
-## Commits locais ja criados antes deste handoff
+## Estado das branches locais
 
-- `b8494f5` - `chore: replace master with terminal multi-pane snapshot`
-- `307a36e` - `docs: audit current terminal multi-pane state`
-- `8af45af` - `docs: add workspace platform ADR`
-
-O roadmap e este proprio handoff devem seguir juntos no proximo commit desta branch de investigacao.
+- `master` contem a substituicao do antigo repositorio pelo snapshot GTK3 do Terminal Multi-Pane.
+- `investigation/workspace-architecture-20260307` contem a auditoria, o ADR, o roteiro de migracao e este handoff.
+- `archive/pre-reset-20260307` preserva a arvore antiga do remoto para comparacao ou recuperacao.
 
 ## Achados que nao podem ser perdidos
 
