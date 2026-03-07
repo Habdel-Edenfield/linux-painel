@@ -1,5 +1,6 @@
 {
-  "name": "@linux-painel/workspace-electron",
+  "name": "linux-painel-workspace",
+  "productName": "Linux Painel Workspace",
   "version": "0.1.0",
   "private": true,
   "description": "Electron workspace foundation for Linux Painel",
