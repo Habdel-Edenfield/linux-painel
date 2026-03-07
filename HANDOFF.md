@@ -1,95 +1,62 @@
-# Handoff — Terminal Multi-Pane / GNOME Desktop
+# Handoff - Reset do Repositorio e Decisao de Plataforma
 
 Data: 2026-03-07
 
-## Onde começamos
+## Estado local do repositorio
 
-- O projeto tinha um protótipo de Terminal Multi-Pane quebrado para GNOME Shell 46.
-- O pedido inicial foi transformar isso em um launcher minimalista no topo do GNOME, com modal multi-pane funcional e estética bem contida.
-- Em um ponto intermediário, o Terminal Multi-Pane acabou substituindo o UUID do `Vitals@CoreCoding.com`, o que gerou conflito com o widget original do Vitals e depois uma regressão no desktop/dock.
+- Clone de trabalho: `/home/habdel/projects/linux-painel`
+- Branch local `master`: snapshot GTK3/Terminal Multi-Pane publicado a partir de `Downloads/widgets-backup-20260306/widgets-backup`
+- Branch local `archive/pre-reset-20260307`: preserva o antigo `origin/master`
+- Branch local `investigation/workspace-architecture-20260307`: auditoria, ADR e roadmap da proxima geracao
 
-## Onde paramos
+## Commits locais ja criados antes deste handoff
 
-- O modal GTK/VTE está funcional e minimalista.
-- O layout inicial agora é: esquerda vazia, centro com 1 terminal, direita vazia.
-- A faixa superior do modal foi separada da faixa dos painéis.
-- O shell visual está quadrado, sem bordas arredondadas.
-- A janela do Terminal Multi-Pane foi convertida para comportamento de janela normal:
-  - sem `keep_above`
-  - sem `skip_taskbar`
-  - sem `skip_pager`
-  - tipo `NORMAL`
-  - header customizado arrastável
-- O instalador foi corrigido para:
-  - parsear `gsettings` no formato `@as []`
-  - instalar o Terminal Multi-Pane no UUID próprio `terminal-multi-pane@habdel.local`
-  - restaurar o Vitals original a partir de `terminal-vitals/`
-  - habilitar os dois na sessão GNOME
-- O Ubuntu Dock apresentou regressão de runtime e foi recarregado; o usuário confirmou que o comportamento do clique voltou ao normal.
+- `b8494f5` - `chore: replace master with terminal multi-pane snapshot`
+- `307a36e` - `docs: audit current terminal multi-pane state`
+- `8af45af` - `docs: add workspace platform ADR`
 
-## Arquivos principais alterados
+O roadmap e este proprio handoff devem seguir juntos no proximo commit desta branch de investigacao.
 
-- `terminal-multi-pane-scripts/terminal-multi-pane.py`
-- `terminal-multi-pane-scripts/install-user.sh`
-- `terminal-multi-pane-extension/extension.js`
-- `terminal-multi-pane-extension/icons/terminal-multi-pane-symbolic.svg`
-- `HANDOFF.md` (este arquivo)
+## Achados que nao podem ser perdidos
 
-## Estado instalado no sistema
+1. A extensao GNOME instalada resolve e executa `~/.local/share/terminal-multi-pane/terminal-multi-pane.py`.
+2. A extensao instalada bate com o snapshot versionado, mas o app GTK instalado nao bate com o snapshot; existe drift de runtime.
+3. A captura do problema de maximizacao corresponde a copia instalada, que ainda usa `set_decorated(False)` e margens fixas de `24px`.
+4. O snapshot versionado ja contem tentativa de zerar margens em estado maximizado, mas isso ainda nao invalida a auditoria porque nao e a copia instalada no desktop.
+5. `maximize` e `fullscreen` sao fluxos diferentes e devem continuar sendo tratados como coisas distintas.
 
-- App GTK/VTE:
-  - `~/.local/share/terminal-multi-pane/terminal-multi-pane.py`
-- Launcher:
-  - `~/.local/bin/terminal-multi-pane`
-- Extensão do Terminal Multi-Pane:
-  - `~/.local/share/gnome-shell/extensions/terminal-multi-pane@habdel.local`
-- Vitals restaurado:
-  - `~/.local/share/gnome-shell/extensions/Vitals@CoreCoding.com`
-- Snapshot local do Vitals usado para restauração:
-  - `terminal-vitals/`
+## Decisao arquitetural fechada
 
-## Comandos úteis
+- Recomendacao principal: `Electron + React + BaseWindow + WebContentsView + xterm.js + node-pty`
+- Plano B nativo Linux: `GTK4/libadwaita + VTE + WebKitGTK`
+- Opcao comparada mas nao recomendada como default: `Qt 6 + QWebEngine + QTermWidget`
+- Nao recomendar evoluir o GTK3 atual como base principal de longo prazo
 
-Validar código:
+Detalhes:
 
-```bash
-cd /home/habdel/Downloads/widgets-backup-20260306/widgets-backup
-python3 -m py_compile terminal-multi-pane-scripts/terminal-multi-pane.py
-bash -n terminal-multi-pane-scripts/install-user.sh
-```
+- Auditoria: `docs/audit/current-state-2026-03-07.md`
+- ADR: `docs/adr/ADR-0001-workspace-platform.md`
+- Roteiro: `docs/roadmap/workspace-migration.md`
 
-Reinstalar app + extensões:
+## Forma do produto-alvo
 
-```bash
-cd /home/habdel/Downloads/widgets-backup-20260306/widgets-backup
-bash terminal-multi-pane-scripts/install-user.sh
-```
+- Janela normal e maximizavel, com comportamento nativo
+- Sidebar ou trilho para modulos
+- Area central com slots horizontais rolaveis
+- Persistencia e restauracao de workspace
+- Reabertura rapida de projetos frequentes
+- Fechamento de um slot sem destruir o restante do workspace
+- Continuidade de uso em Ubuntu/GNOME
 
-Conferir extensões habilitadas:
+## Proximo passo recomendado para o executor
 
-```bash
-gsettings get org.gnome.shell enabled-extensions
-gnome-extensions list --enabled
-gnome-extensions info Vitals@CoreCoding.com
-gnome-extensions info terminal-multi-pane@habdel.local
-```
+1. Criar `feat/electron-workspace-foundation` a partir de `investigation/workspace-architecture-20260307`.
+2. Iniciar a nova implementacao em `apps/workspace-electron/`.
+3. Manter o prototipo GTK3 congelado como referencia.
+4. Entregar primeiro a fundacao do shell Electron, depois slots horizontais, terminais, modulos laterais e browser embutido.
 
-Se o GNOME Shell continuar segurando metadados antigos em memória:
+## Bloqueio atual para GitHub
 
-```bash
-Alt+F2
-r
-```
-
-ou logout/login.
-
-## Pendências reais para o próximo agente
-
-1. Verificar visualmente, em uma sessão GNOME limpa, se o Vitals aparece separado do Terminal Multi-Pane na barra superior.
-2. Validar manualmente se minimizar/maximizar do Terminal Multi-Pane ficou correto no uso real, não só na configuração da janela.
-3. Se o Shell ainda mostrar metadata stale para `Vitals@CoreCoding.com`, fazer um refresh manual do Shell e revalidar os dois widgets no topo.
-
-## Observação importante
-
-- Durante esta sessão, o DBus/live registry do GNOME Shell às vezes continuou mostrando metadata antiga em memória para o UUID do Vitals, mesmo com os arquivos restaurados no disco.
-- Isso é cache de runtime do GNOME Shell, não estado final dos arquivos instalados.
+- O clone local esta pronto para push, mas o ambiente atual nao tem credencial configurada para `https://github.com`.
+- O push falhou com `fatal: could not read Username for 'https://github.com': No such device or address`.
+- Sem autenticar o git neste ambiente, o handoff acima continua apenas local.
